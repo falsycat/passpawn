@@ -12,6 +12,10 @@ add_library(passpawn-codec SHARED)
 target_include_directories(passpawn-codec PRIVATE .)
 target_sources(passpawn-codec
   PRIVATE
+    nf7.hh
+    common/queue.hh
+    common/value.hh
+
     codec/_init.cc
     codec/stb_image.cc
 )

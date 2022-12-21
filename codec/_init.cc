@@ -1,4 +1,4 @@
-#include "node.h"
+#include "nf7.hh"
 
 const nf7_vtable_t* nf7;
 

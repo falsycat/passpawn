@@ -1,9 +1,11 @@
-#include "header.inc"
-
 #include <cstring>
 #include <iostream>
 
 #include <stb_image.h>
+
+#include "nf7.hh"
+
+#include "common/value.hh"
 
 using namespace std::literals;
 
@@ -36,30 +38,30 @@ static void handle(const nf7_node_msg_t* in) noexcept {
       const auto type = nf7->value.get_type(in->value);
       switch (type) {
       case NF7_STRING:
-        info.npath = get<std::string>(in->value);
+        info.npath = pp::Get<std::string>(in->value);
         break;
       case NF7_TUPLE:
         if (auto v = nf7->value.get_tuple(in->value, "npath")) {
-          info.npath = get<std::string>(v);
+          info.npath = pp::Get<std::string>(v);
         }
         if (auto v = nf7->value.get_tuple(in->value, "comp")) {
-          info.comp = get<int>(v);
+          info.comp = pp::Get<int>(v);
         }
         break;
       default:
         throw std::runtime_error {"incompatible input"};
       }
     } catch (std::exception& e) {
-      set(in->value, e.what());
+      pp::Set(in->value, e.what());
       goto ERROR;
     }
 
     if (info.npath.size() == 0) {
-      set(in->value, "npath is empty");
+      pp::Set(in->value, "npath is empty");
       goto ERROR;
     }
     if (info.comp < 0 || 4 < info.comp) {
-      set(in->value, "comp is out of range (0~4)");
+      pp::Set(in->value, "comp is out of range (0~4)");
       goto ERROR;
     }
 
@@ -77,9 +79,9 @@ static void handle(const nf7_node_msg_t* in) noexcept {
         nf7_value_t* values[4];
         nf7->value.set_tuple(ctx->value, names, values);
 
-        set(values[0], static_cast<int64_t>(w));
-        set(values[1], static_cast<int64_t>(h));
-        set(values[2], static_cast<int64_t>(info.comp));
+        pp::Set(values[0], static_cast<int64_t>(w));
+        pp::Set(values[1], static_cast<int64_t>(h));
+        pp::Set(values[2], static_cast<int64_t>(info.comp));
 
         const auto size = static_cast<size_t>(w*h*info.comp);
         uint8_t*   dst  = nf7->value.set_vector(values[3], size);
@@ -88,7 +90,7 @@ static void handle(const nf7_node_msg_t* in) noexcept {
 
         nf7->ctx.exec_emit(ctx, "img", ctx->value, 0);
       } else {
-        set(ctx->value, "failed to load image");
+        pp::Set(ctx->value, "failed to load image");
         nf7->ctx.exec_emit(ctx, "error", ctx->value, 0);
       }
       delete &info;
@@ -96,7 +98,7 @@ static void handle(const nf7_node_msg_t* in) noexcept {
     return;
 
   } else {
-    set(in->value, "unknown input");
+    pp::Set(in->value, "unknown input");
     goto ERROR;
   }
 
