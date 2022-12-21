@@ -16,6 +16,7 @@ FetchContent_Declare(
 FetchContent_Populate(stb)
 
 add_library(stb)
+set_property(TARGET stb PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(stb SYSTEM PUBLIC ${stb_SOURCE_DIR})
 target_sources(stb
   PUBLIC
@@ -23,4 +24,14 @@ target_sources(stb
   PRIVATE
     stb.c
 )
-set_property(TARGET stb PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+
+# ---- zlib-ng ----
+# repository: https://github.com/zlib-ng/zlib-ng
+# license   : zlib
+FetchContent_Declare(
+  zlib
+  URL "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/2.0.6.zip"
+)
+FetchContent_MakeAvailable(zlib)
+set_property(TARGET zlib PROPERTY POSITION_INDEPENDENT_CODE ON)

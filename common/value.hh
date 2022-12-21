@@ -1,7 +1,9 @@
 #pragma once
 
-#include <type_traits>
+#include <cstring>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 #include "nf7.hh"
 
@@ -33,5 +35,29 @@ inline void Set(nf7_value_t* v, std::string_view str) noexcept {
   char* ptr = nf7->value.set_string(v, n);
   std::memcpy(ptr, str.data(), n);
 }
+
+struct UniqValue final {
+ public:
+  UniqValue() = delete;
+  UniqValue(const nf7_value_t* v) noexcept : ptr_(nf7->value.create(v)) {
+  }
+  ~UniqValue() noexcept {
+    nf7->value.destroy(ptr_);
+  }
+  UniqValue(const UniqValue&) = delete;
+  UniqValue(UniqValue&& src) noexcept {
+    std::swap(src.ptr_, ptr_);
+  }
+  UniqValue& operator=(const UniqValue&) = delete;
+  UniqValue& operator=(UniqValue&& src) noexcept {
+    std::swap(src.ptr_, ptr_);
+    return *this;
+  }
+
+  nf7_value_t* get() const noexcept { return ptr_; }
+
+ private:
+  nf7_value_t* ptr_ = nullptr;
+};
 
 }  // namespace pp

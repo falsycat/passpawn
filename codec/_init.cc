@@ -12,6 +12,8 @@ extern "C" void nf7_init(nf7_init_t* init) noexcept {
   } while (0)
 
   REGISTER_(stb_image);
+  REGISTER_(zlib_inflate);
+  REGISTER_(zlib_deflate);
 
 # undef REGISTER_
 }

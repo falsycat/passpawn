@@ -10,9 +10,21 @@
 using namespace std::literals;
 
 
+static void* init() noexcept;
+static void deinit(void*) noexcept;
+static void handle(const nf7_node_msg_t*) noexcept;
+
 static const char* I[] = {"input", nullptr};
 static const char* O[] = {"img", "error", nullptr};
-PASSPAWN_DEFINE_NODE_META(stb_image, "decodes an image by stb library", I, O);
+extern "C" const nf7_node_t stb_image = {
+  .name    = "stb_image",
+  .desc    = "decodes an image by stb_image library",
+  .inputs  = I,
+  .outputs = O,
+  .init    = init,
+  .deinit  = deinit,
+  .handle  = handle,
+};
 
 
 struct CtxInfo final {
