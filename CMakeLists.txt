@@ -9,10 +9,20 @@ set(CMAKE_SHARED_LIBRARY_PREFIX "")
 set(CMAKE_CXX_STANDARD          20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(PASSPAWN_OPTIONS_WARNING
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:
+    -Wall -Werror -pedantic-errors -Wextra -Wconversion -Wsign-conversion>
+  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
+    -Wno-overloaded-virtual>
+  $<$<CXX_COMPILER_ID:MSVC>:
+    /W4 /WX /Zc:__cplusplus /external:anglebrackets /external:W0>
+)
+
 
 # ---- library: codec ----
 add_library(passpawn-codec SHARED)
 target_include_directories(passpawn-codec PRIVATE .)
+target_compile_options(passpawn-codec PRIVATE ${PASSPAWN_OPTIONS_WARNING})
 target_sources(passpawn-codec
   PRIVATE
     nf7.hh

@@ -40,7 +40,7 @@ struct CtxInfo final {
 static void* init() noexcept {
   return nullptr;
 }
-static void deinit(void* ptr) noexcept {
+static void deinit(void*) noexcept {
 }
 static void handle(const nf7_node_msg_t* in) noexcept {
   if (in->name == "input"s) {

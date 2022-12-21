@@ -81,7 +81,7 @@ struct Context {
     q_.PushAndVisit<Context>(ctx, std::move(v));
   }
 
-  void Handle(nf7_ctx_t* ctx, const InflateInit&) {
+  void Handle(nf7_ctx_t*, const InflateInit&) {
     TearDown();
     st_.zalloc = Z_NULL;
     st_.zfree  = Z_NULL;
@@ -97,11 +97,11 @@ struct Context {
     }
     const auto [buf, bufn] = GetBuffer(p.v.get());
     st_.next_in  = buf;
-    st_.avail_in = bufn;
+    st_.avail_in = static_cast<uint32_t>(bufn);
     Feed(ctx, zng_inflate, Z_NO_FLUSH);
   }
 
-  void Handle(nf7_ctx_t* ctx, const DeflateInit& p) {
+  void Handle(nf7_ctx_t*, const DeflateInit& p) {
     TearDown();
     st_.zalloc = Z_NULL;
     st_.zfree  = Z_NULL;
@@ -117,7 +117,7 @@ struct Context {
     }
     const auto [buf, bufn] = GetBuffer(p.v.get());
     st_.next_in  = buf;
-    st_.avail_in = bufn;
+    st_.avail_in = static_cast<uint32_t>(bufn);
     Feed(ctx, zng_deflate, Z_NO_FLUSH);
   }
   void Handle(nf7_ctx_t* ctx, const DeflateEnd&) {
