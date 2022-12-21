@@ -23,5 +23,4 @@ target_sources(stb
   PRIVATE
     stb.c
 )
-
-
+set_property(TARGET stb PROPERTY POSITION_INDEPENDENT_CODE ON)
