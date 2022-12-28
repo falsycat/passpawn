@@ -115,6 +115,6 @@ static void handle(const nf7_node_msg_t* in) noexcept {
   }
 
 ERROR:
-  nf7->ctx.emit(in->ctx, "error", in->value);
+  nf7->ctx.exec_emit(in->ctx, "error", in->value, 0);
   return;
 }

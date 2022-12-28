@@ -38,3 +38,17 @@ target_link_libraries(passpawn-codec
     stb
     zlibstatic
 )
+
+# ---- library: io ----
+add_library(passpawn-io SHARED)
+target_include_directories(passpawn-io PRIVATE .)
+target_compile_options(passpawn-io PRIVATE ${PASSPAWN_OPTIONS_WARNING})
+target_sources(passpawn-io
+  PRIVATE
+    nf7.hh
+    common/queue.hh
+    common/value.hh
+
+    io/_init.cc
+    io/nfile.cc
+)

@@ -17,7 +17,8 @@ T Get(const nf7_value_t* v) {
     if (nf7->value.get_integer(v, &i)) {
       return static_cast<T>(i);
     }
-  } else if constexpr (std::is_same_v<T, std::string>) {
+  } else if constexpr (std::is_same_v<T, std::string> ||
+                       std::is_same_v<T, const char*>) {
     if (auto str = nf7->value.get_string(v, nullptr)) {
       return str;
     }

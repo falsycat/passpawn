@@ -216,5 +216,5 @@ try {
   }
 } catch (std::exception& e) {
   pp::Set(in->value, e.what());
-  nf7->ctx.emit(in->ctx, "error", in->value);
+  nf7->ctx.exec_emit(in->ctx, "error", in->value, 0);
 }
