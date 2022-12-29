@@ -27,7 +27,7 @@ extern "C" const nf7_node_t stb_image = {
 };
 
 
-struct CtxInfo final {
+struct Session final {
   // input
   std::string npath;
   int         comp = 0;
@@ -42,79 +42,68 @@ static void* init() noexcept {
 }
 static void deinit(void*) noexcept {
 }
-static void handle(const nf7_node_msg_t* in) noexcept {
+static void handle(const nf7_node_msg_t* in) noexcept
+try {
+  pp::ConstValue v = in->value;
   if (in->name == "input"s) {
-    CtxInfo info;
+    Session ss;
 
-    try {
-      const auto type = nf7->value.get_type(in->value);
-      switch (type) {
-      case NF7_STRING:
-        info.npath = pp::Get<std::string>(in->value);
-        break;
-      case NF7_TUPLE:
-        if (auto v = nf7->value.get_tuple(in->value, "npath")) {
-          info.npath = pp::Get<std::string>(v);
-        }
-        if (auto v = nf7->value.get_tuple(in->value, "comp")) {
-          info.comp = pp::Get<int>(v);
-        }
-        break;
-      default:
-        throw std::runtime_error {"incompatible input"};
+    switch (v.type()) {
+    case NF7_STRING:
+      ss.npath = v.string();
+      break;
+    case NF7_TUPLE:
+      try {
+        ss.npath = v["npath"].string();
+        ss.comp  = v["comp"].integerOrScalar<int>();
+      } catch (...) {
+        throw std::runtime_error {
+          "incompatible tuple input (requires 'npath' and 'comp' fields)"};
       }
-    } catch (std::exception& e) {
-      pp::Set(in->value, e.what());
-      goto ERROR;
+      break;
+    default:
+      throw std::runtime_error {"incompatible input"};
     }
 
-    if (info.npath.size() == 0) {
-      pp::Set(in->value, "npath is empty");
-      goto ERROR;
+    if (ss.npath.size() == 0) {
+      throw std::runtime_error {"npath is empty"};
     }
-    if (info.comp < 0 || 4 < info.comp) {
-      pp::Set(in->value, "comp is out of range (0~4)");
-      goto ERROR;
+    if (ss.comp < 0 || 4 < ss.comp) {
+      throw std::runtime_error {"comp is out of range (0~4)"};
     }
 
-    auto ptr = new CtxInfo {std::move(info)};
+    auto ptr = new Session {std::move(ss)};
     nf7->ctx.exec_async(in->ctx, ptr, [](auto ctx, auto ptr) {
-      auto& info = *reinterpret_cast<CtxInfo*>(ptr);
+      auto& ss = *reinterpret_cast<Session*>(ptr);
 
       int w, h, comp;
-      if (uint8_t* src = stbi_load(info.npath.c_str(), &w, &h, &comp, info.comp)) {
-        if (info.comp == 0) {
-          info.comp = comp;
+      if (uint8_t* src = stbi_load(ss.npath.c_str(), &w, &h, &comp, ss.comp)) {
+        if (ss.comp == 0) {
+          ss.comp = comp;
         }
 
         static const char* names[] = {"w", "h", "comp", "buf", nullptr};
         nf7_value_t* values[4];
-        nf7->value.set_tuple(ctx->value, names, values);
+        pp::MutValue {ctx->value}.AllocateTuple(names, values);
 
-        pp::Set(values[0], static_cast<int64_t>(w));
-        pp::Set(values[1], static_cast<int64_t>(h));
-        pp::Set(values[2], static_cast<int64_t>(info.comp));
+        pp::MutValue {values[0]} = static_cast<int64_t>(w);
+        pp::MutValue {values[1]} = static_cast<int64_t>(h);
+        pp::MutValue {values[2]} = static_cast<int64_t>(ss.comp);
 
-        const auto size = static_cast<size_t>(w*h*info.comp);
-        uint8_t*   dst  = nf7->value.set_vector(values[3], size);
+        const auto size = static_cast<size_t>(w*h*ss.comp);
+        uint8_t*   dst  = pp::MutValue {values[3]}.AllocateVector(size);
         std::memcpy(dst, src, size);
         stbi_image_free(src);
 
         nf7->ctx.exec_emit(ctx, "img", ctx->value, 0);
       } else {
-        pp::Set(ctx->value, "failed to load image");
+        pp::MutValue {ctx->value} = "failed to load image";
         nf7->ctx.exec_emit(ctx, "error", ctx->value, 0);
       }
-      delete &info;
+      delete &ss;
     }, 0);
-    return;
-
-  } else {
-    pp::Set(in->value, "unknown input");
-    goto ERROR;
   }
-
-ERROR:
+} catch (std::exception& e) {
+  pp::MutValue {in->value} = e.what();
   nf7->ctx.exec_emit(in->ctx, "error", in->value, 0);
-  return;
 }

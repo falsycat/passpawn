@@ -74,7 +74,7 @@ struct Context {
   try {
     std::visit([&](auto& v) { Handle(ctx, v); }, v);
   } catch (std::runtime_error& e) {
-    pp::Set(ctx->value, e.what());
+    pp::MutValue {ctx->value} = e.what();
     nf7->ctx.exec_emit(ctx, "error", ctx->value, 0);
   }
   void Push(nf7_ctx_t* ctx, V&& v) noexcept {
@@ -95,9 +95,9 @@ struct Context {
     if (status_ != kInflate) {
       Handle(ctx, InflateInit {});
     }
-    const auto [buf, bufn] = GetBuffer(p.v.get());
-    st_.next_in  = buf;
-    st_.avail_in = static_cast<uint32_t>(bufn);
+    const auto buf = p.v.vectorOrString();
+    st_.next_in  = buf.data();
+    st_.avail_in = static_cast<uint32_t>(buf.size());
     Feed(ctx, zng_inflate, Z_NO_FLUSH);
   }
 
@@ -115,9 +115,9 @@ struct Context {
     if (status_ != kDeflate) {
       Handle(ctx, DeflateInit {6});
     }
-    const auto [buf, bufn] = GetBuffer(p.v.get());
-    st_.next_in  = buf;
-    st_.avail_in = static_cast<uint32_t>(bufn);
+    const auto buf = p.v.vectorOrString();
+    st_.next_in  = buf.data();
+    st_.avail_in = static_cast<uint32_t>(buf.size());
     Feed(ctx, zng_deflate, Z_NO_FLUSH);
   }
   void Handle(nf7_ctx_t* ctx, const DeflateEnd&) {
@@ -168,23 +168,6 @@ struct Context {
       if (ret == Z_STREAM_END) break;
     }
   }
-
-  static std::pair<const uint8_t*, size_t> GetBuffer(const nf7_value_t* v) {
-    const uint8_t* buf;
-    size_t bufn;
-
-    switch (nf7->value.get_type(v)) {
-    case NF7_STRING:
-      buf = reinterpret_cast<const uint8_t*>(nf7->value.get_string(v, &bufn));
-      break;
-    case NF7_VECTOR:
-      buf = nf7->value.get_vector(v, &bufn);
-      break;
-    default:
-      throw std::runtime_error {"invalid stream input"};
-    }
-    return std::make_pair(buf, bufn);
-  }
 };
 
 
@@ -206,15 +189,16 @@ static void handle_inflate(const nf7_node_msg_t* in) noexcept {
 
 static void handle_deflate(const nf7_node_msg_t* in) noexcept
 try {
+  auto  v   = pp::ConstValue(in->value);
   auto& ctx = *reinterpret_cast<Context*>(in->ctx->ptr);
   if (in->name == "start"s) {
-    ctx.Push(in->ctx, Context::DeflateInit {pp::Get<int>(in->value)});
+    ctx.Push(in->ctx, Context::DeflateInit {v.integerOrScalar<int>()});
   } else if (in->name == "in"s) {
-    ctx.Push(in->ctx, Context::DeflateExec {.v = in->value});
+    ctx.Push(in->ctx, Context::DeflateExec {.v = v});
   } else if (in->name == "end"s) {
     ctx.Push(in->ctx, Context::DeflateEnd {});
   }
 } catch (std::exception& e) {
-  pp::Set(in->value, e.what());
+  pp::MutValue {in->value} = e.what();
   nf7->ctx.exec_emit(in->ctx, "error", in->value, 0);
 }

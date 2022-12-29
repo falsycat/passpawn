@@ -78,12 +78,13 @@ struct Context final {
 
   void operator()(nf7_ctx_t* ctx, const V& v) noexcept
   try {
-    std::visit([&](auto& v) { Handle(ctx, v); }, v);
-  } catch (std::bad_variant_access&) {
-    pp::Set(ctx->value, "invalid state");
-    nf7->ctx.exec_emit(ctx, "error", ctx->value, 0);
+    try {
+      std::visit([&](auto& v) { Handle(ctx, v); }, v);
+    } catch (std::bad_variant_access&) {
+      throw std::runtime_error {"invalid state"};
+    }
   } catch (std::runtime_error& e) {
-    pp::Set(ctx->value, e.what());
+    pp::MutValue {ctx->value} = e.what();
     nf7->ctx.exec_emit(ctx, "error", ctx->value, 0);
   }
   void Push(nf7_ctx_t* ctx, V&& v) noexcept {
@@ -129,23 +130,9 @@ struct Context final {
     }
   }
   void Handle(nf7_ctx_t*, const WriteExec& p) {
-    auto& st = std::get<std::ofstream>(st_);
-    const auto v = p.v.get();
-
-    size_t n;
-    const char* ptr;
-    switch (nf7->value.get_type(v)) {
-    case NF7_STRING:
-      ptr = nf7->value.get_string(v, &n);
-      break;
-    case NF7_VECTOR:
-      ptr = reinterpret_cast<const char*>(nf7->value.get_vector(v, &n));
-      break;
-    default:
-      throw std::runtime_error {"expected string or vector"};
-    }
-
-    st.write(reinterpret_cast<const char*>(ptr), static_cast<std::streamsize>(n));
+    auto& st  = std::get<std::ofstream>(st_);
+    auto  str = p.v.stringOrVector();
+    st.write(str.data(), static_cast<std::streamsize>(str.size()));
     if (!st) throw std::runtime_error {"failed to write"};
   }
   void Handle(nf7_ctx_t*, const WriteSkip& p) {
@@ -175,43 +162,40 @@ static void deinit(void* ptr) noexcept { delete reinterpret_cast<Context*>(ptr);
 static void handle_read(const nf7_node_msg_t* in) noexcept
 try {
   auto& ctx = *reinterpret_cast<Context*>(in->ctx->ptr);
+  auto  v   = pp::ConstValue {in->value};
   if (in->name == "open"s) {
     // TODO: get Env::npath()
-    ctx.Push(in->ctx, Context::ReadOpen {.npath = pp::Get<const char*>(in->value)});
+    ctx.Push(in->ctx, Context::ReadOpen {.npath = v.string()});
   } else if (in->name == "read"s) {
-    ctx.Push(in->ctx, Context::ReadExec {.n = pp::Get<std::streamsize>(in->value)});
+    ctx.Push(in->ctx, Context::ReadExec {.n = v.integerOrScalar<std::streamsize>()});
   } else if (in->name == "skip"s) {
-    const auto n = pp::Get<std::ifstream::off_type>(in->value);
-    ctx.Push(in->ctx, Context::ReadSkip {.n = n});
+    ctx.Push(in->ctx, Context::ReadSkip {.n = v.integerOrScalar<std::ifstream::off_type>()});
   } else if (in->name == "seek"s) {
-    const auto n = pp::Get<std::ifstream::off_type>(in->value);
-    ctx.Push(in->ctx, Context::ReadSeek {.n = n});
+    ctx.Push(in->ctx, Context::ReadSeek {.n = v.integerOrScalar<std::ifstream::off_type>()});
   } else if (in->name == "close"s) {
     ctx.Push(in->ctx, Context::Close {});
   }
 } catch (std::exception& e) {
-  pp::Set(in->value, e.what());
+  pp::MutValue {in->value} = e.what();
   nf7->ctx.exec_emit(in->ctx, "error", in->value, 0);
 }
-
 static void handle_write(const nf7_node_msg_t* in) noexcept
 try {
+  auto  v   = pp::ConstValue {in->value};
   auto& ctx = *reinterpret_cast<Context*>(in->ctx->ptr);
   if (in->name == "open"s) {
     // TODO: get Env::npath()
-    ctx.Push(in->ctx, Context::WriteOpen {.npath = pp::Get<const char*>(in->value)});
+    ctx.Push(in->ctx, Context::WriteOpen {.npath = v.string()});
   } else if (in->name == "write"s) {
-    ctx.Push(in->ctx, Context::WriteExec {.v = in->value});
+    ctx.Push(in->ctx, Context::WriteExec {.v = v});
   } else if (in->name == "skip"s) {
-    const auto n = pp::Get<std::ifstream::off_type>(in->value);
-    ctx.Push(in->ctx, Context::WriteSkip {.n = n});
+    ctx.Push(in->ctx, Context::WriteSkip {.n = v.integerOrScalar<std::ifstream::off_type>()});
   } else if (in->name == "seek"s) {
-    const auto n = pp::Get<std::ifstream::off_type>(in->value);
-    ctx.Push(in->ctx, Context::WriteSeek {.n = n});
+    ctx.Push(in->ctx, Context::WriteSeek {.n = v.integerOrScalar<std::ifstream::off_type>()});
   } else if (in->name == "close"s) {
     ctx.Push(in->ctx, Context::Close {});
   }
 } catch (std::exception& e) {
-  pp::Set(in->value, e.what());
+  pp::MutValue {in->value} = e.what();
   nf7->ctx.exec_emit(in->ctx, "error", in->value, 0);
 }
